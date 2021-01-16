@@ -25,6 +25,8 @@ if remove_device is not None:
     PYTORCH_VERSION = torch.__version__[:remove_device.start()]
 PYTORCH_VERSION = list(map(int, PYTORCH_VERSION.split(".")))
 PYTORCH_VERSION_NUMBER = PYTORCH_VERSION[0] * 10000 + PYTORCH_VERSION[1] * 100 + PYTORCH_VERSION[2]
+
+
 class CMakeExtension(Extension):
     def __init__(self, name, sourcedir='', library_dirs=[]):
         Extension.__init__(self, name, sources=[], library_dirs=library_dirs)
@@ -49,12 +51,12 @@ class CMakeBuild(build_ext):
 
     def build_extension(self, ext):
         extdir = os.path.abspath(os.path.dirname(self.get_ext_fullpath(ext.name)))
-        cmake_args = [# '-G "Visual Studio 15 2017 Win64"',
-                      '-DCMAKE_PREFIX_PATH={}'.format(LIBTORCH_ROOT),
-                      '-DPYBIND11_PYTHON_VERSION={}'.format(PYTHON_VERSION),
-                      '-DSPCONV_BuildTests=OFF',
-                      '-DPYTORCH_VERSION={}'.format(PYTORCH_VERSION_NUMBER)
-                      ] #  -arch=sm_61
+        cmake_args = [  # '-G "Visual Studio 15 2017 Win64"',
+            '-DCMAKE_PREFIX_PATH={}'.format(LIBTORCH_ROOT),
+            '-DPYBIND11_PYTHON_VERSION={}'.format(PYTHON_VERSION),
+            '-DSPCONV_BuildTests=OFF',
+            '-DPYTORCH_VERSION={}'.format(PYTORCH_VERSION_NUMBER)
+        ]  # -arch=sm_61
         if not torch.cuda.is_available() and SPCONV_FORCE_BUILD_CUDA is None:
             cmake_args += ['-DSPCONV_BuildCUDA=OFF']
         else:
@@ -62,7 +64,9 @@ class CMakeBuild(build_ext):
             # must add following flags to use at::Half
             # but will remove raw half operators.
             cuda_flags += ["-D__CUDA_NO_HALF_OPERATORS__", "-D__CUDA_NO_HALF_CONVERSIONS__"]
-            # cuda_flags += ["-D__CUDA_NO_HALF2_OPERATORS__"] 
+            # cuda_flags += ["-D__CUDA_NO_HALF2_OPERATORS__"]
+            cuda_flags += ['--gpu-architecture=compute_60',
+                           '--gpu-code=sm_60,sm_61,sm_62,sm_70,sm_75']
             cmake_args += ['-DCMAKE_CUDA_FLAGS=' + " ".join(cuda_flags)]
         cfg = 'Debug' if self.debug else 'Release'
         assert cfg == "Release", "pytorch ops don't support debug build."
@@ -100,9 +104,9 @@ setup(
     author_email='scrin@foxmail.com',
     description='spatial sparse convolution for pytorch',
     long_description='',
-    setup_requires = ['torch>=1.3.0'],
+    setup_requires=['torch>=1.3.0'],
     packages=packages,
-    package_dir = {'spconv': 'spconv'},
+    package_dir={'spconv': 'spconv'},
     ext_modules=[CMakeExtension('spconv', library_dirs=[])],
     cmdclass=dict(build_ext=CMakeBuild),
     zip_safe=False,
